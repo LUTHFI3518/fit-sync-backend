@@ -1,3 +1,4 @@
+// auth.controller.js
 const { users, databases } = require("../config/appwrite");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -30,7 +31,7 @@ exports.register = async (req, res) => {
         phone: null,
         age: null,
         height: null,
-        bmi: null,
+        bmr: null,
         goal: null,
         level: null,
         planDuration: null,
