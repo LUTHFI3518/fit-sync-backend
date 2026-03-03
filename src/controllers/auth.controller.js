@@ -3,6 +3,7 @@ const { users, databases } = require("../config/appwrite");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { ID } = require("appwrite");
+const sdk = require("node-appwrite");
 
 exports.register = async (req, res) => {
   try {
@@ -79,7 +80,13 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const session = await users.createSession(email, password);
+    const client = new sdk.Client()
+      .setEndpoint(process.env.APPWRITE_ENDPOINT)
+      .setProject(process.env.APPWRITE_PROJECT_ID);
+
+    const account = new sdk.Account(client);
+
+    const session = await account.createEmailPasswordSession(email, password);
 
     const token = jwt.sign({ userId: session.userId }, process.env.JWT_SECRET, {
       expiresIn: "7d",
@@ -91,6 +98,7 @@ exports.login = async (req, res) => {
       userId: session.userId,
     });
   } catch (error) {
+    console.error("LOGIN ERROR:", error);
     res.status(401).json({
       error: "Invalid credentials",
     });
