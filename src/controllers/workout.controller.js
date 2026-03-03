@@ -304,3 +304,47 @@ exports.completeWorkout = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+exports.getJourney = async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // Get workouts
+    const workouts = await databases.listDocuments(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_WORKOUT_COLLECTION_ID,
+      [
+        Query.equal("userId", userId),
+        Query.equal("completed", true), // 🔥 Only completed workouts
+      ],
+    );
+
+    // Get unique workout dates
+    const dates = [...new Set(workouts.documents.map((w) => w.date))].sort();
+
+    const completedCount = dates.length;
+
+    const completedDays = Array.from(
+      { length: completedCount },
+      (_, i) => i + 1,
+    );
+
+    const currentDay = completedCount + 1;
+
+    // Get streak
+    const streakDoc = await databases.getDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_STREAK_COLLECTION_ID,
+      userId,
+    );
+
+    res.status(200).json({
+      totalDays: 90,
+      completedDays,
+      currentDay,
+      streak: streakDoc.currentStreak,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
