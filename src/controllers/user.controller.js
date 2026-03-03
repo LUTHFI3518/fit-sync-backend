@@ -19,7 +19,7 @@ exports.updateProfile = async (req, res) => {
       phone,
     } = req.body;
 
-    const bmr =
+    const BMR =
       weight && height && age && gender
         ? gender === "male"
           ? 10 * weight + 6.25 * height - 5 * age + 5
@@ -35,7 +35,7 @@ exports.updateProfile = async (req, res) => {
         height,
         weight,
         gender,
-        bmr,
+        BMR,
         goal,
         level,
         planDuration,

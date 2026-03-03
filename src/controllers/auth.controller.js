@@ -31,7 +31,7 @@ exports.register = async (req, res) => {
         phone: null,
         age: null,
         height: null,
-        bmr: null,
+        BMR: null,
         goal: null,
         level: null,
         planDuration: null,
