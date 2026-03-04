@@ -57,12 +57,18 @@ exports.updateDailySummary = async (userId) => {
   let breakfast = 0;
   let lunch = 0;
   let dinner = 0;
+  let protein = 0;
+  let carbs = 0;
+  let fats = 0;
   foodLogs.documents.forEach((food) => {
-    intake += food.calories;
+    intake += food.calories || 0;
+    protein += food.protein || 0;
+    carbs += food.carbs || 0;
+    fats += food.fats || 0;
 
-    if (food.mealType === "breakfast") breakfast += food.calories;
-    if (food.mealType === "lunch") lunch += food.calories;
-    if (food.mealType === "dinner") dinner += food.calories;
+    if (food.mealType === "breakfast") breakfast += food.calories || 0;
+    if (food.mealType === "lunch") lunch += food.calories || 0;
+    if (food.mealType === "dinner") dinner += food.calories || 0;
   });
 
   const energySpent = BMR + burned;
@@ -86,6 +92,9 @@ exports.updateDailySummary = async (userId) => {
         breakfastCalories: breakfast,
         lunchCalories: lunch,
         dinnerCalories: dinner,
+        protein,
+        carbs,
+        fats,
         energySpent,
         balance,
         status,
@@ -104,6 +113,9 @@ exports.updateDailySummary = async (userId) => {
         breakfastCalories: breakfast,
         lunchCalories: lunch,
         dinnerCalories: dinner,
+        protein,
+        carbs,
+        fats,
         energySpent,
         balance,
         status,
@@ -116,6 +128,9 @@ exports.updateDailySummary = async (userId) => {
     breakfast,
     lunch,
     dinner,
+    protein,
+    carbs,
+    fats,
     burned,
     energySpent,
     balance,

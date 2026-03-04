@@ -17,6 +17,8 @@ exports.updateProfile = async (req, res) => {
       hasBackPain,
       hasKneePain,
       phone,
+      name,
+      avatarUrl,
     } = req.body;
 
     const BMR =
@@ -43,6 +45,8 @@ exports.updateProfile = async (req, res) => {
         hasBackPain,
         hasKneePain,
         phone,
+        name,
+        avatarUrl,
       },
     );
 
@@ -55,5 +59,20 @@ exports.updateProfile = async (req, res) => {
     res.status(400).json({
       error: error.message,
     });
+  }
+};
+
+exports.getProfile = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const document = await databases.getDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_PROFILE_COLLECTION_ID,
+      userId
+    );
+    res.status(200).json(document);
+  } catch (error) {
+    console.error("GET PROFILE ERROR:", error);
+    res.status(400).json({ error: error.message });
   }
 };

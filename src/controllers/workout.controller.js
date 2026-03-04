@@ -341,6 +341,7 @@ exports.getJourney = async (req, res) => {
     res.status(200).json({
       totalDays: 90,
       completedDays,
+      completedDates: dates,
       currentDay,
       streak: streakDoc.currentStreak,
     });

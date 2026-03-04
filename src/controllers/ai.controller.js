@@ -3,8 +3,9 @@ const { updateDailySummary } = require("../utils/dailySummaryEngine");
 const { databases } = require("../config/appwrite");
 const { Query } = require("appwrite");
 const { ID } = require("appwrite");
-
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const groqService = require("../services/groq.service");
+const visionService = require("../services/vision.service");
+const { aiTools } = require("../ai/tools");
 
 exports.chat = async (req, res) => {
   try {
@@ -82,106 +83,76 @@ exports.chat = async (req, res) => {
       });
     }
 
-    const response = await axios.post(
-      OPENROUTER_URL,
-      {
-        model: "openai/gpt-oss-120b:free",
-        messages,
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "log_food",
-              description: "Log food intake for the user",
-              parameters: {
-                type: "object",
-                properties: {
-                  foodName: { type: "string" },
-                  calories: { type: "number" },
-                  protein: { type: "number" },
-                  carbs: { type: "number" },
-                  fats: { type: "number" },
-                  mealType: {
-                    type: "string",
-                    enum: ["breakfast", "lunch", "dinner"],
-                  },
-                },
-                required: ["foodName", "calories"],
-              },
-            },
+    const aiMessage = await groqService.chat(messages, [
+  {
+    type: "function",
+    function: {
+      name: "log_food",
+      description: "Log food intake for the user",
+      parameters: {
+        type: "object",
+        properties: {
+          foodName: { type: "string" },
+          calories: { type: "number" },
+          protein: { type: "number" },
+          carbs: { type: "number" },
+          fats: { type: "number" },
+          mealType: {
+            type: "string",
+            enum: ["breakfast", "lunch", "dinner"],
           },
-          {
-            type: "function",
-            function: {
-              name: "get_daily_summary",
-              description: "Get today's calorie balance summary",
-              parameters: {
-                type: "object",
-                properties: {},
-                required: [],
-              },
-            },
-          },
-          {
-            type: "function",
-            function: {
-              name: "get_today_workout",
-              description: "Get today's workout session for the user",
-              parameters: {
-                type: "object",
-                properties: {},
-                required: [],
-              },
-            },
-          },
-
-          {
-            type: "function",
-            function: {
-              name: "pause_workout",
-              description: "Pause workouts for illness or recovery",
-              parameters: {
-                type: "object",
-                properties: {},
-                required: [],
-              },
-            },
-          },
-          {
-            type: "function",
-            function: {
-              name: "resume_workout",
-              description: "Resume workouts after pause",
-              parameters: {
-                type: "object",
-                properties: {},
-                required: [],
-              },
-            },
-          },
-          {
-            type: "function",
-            function: {
-              name: "break_streak",
-              description: "Break user's workout streak due to absence",
-              parameters: {
-                type: "object",
-                properties: {},
-                required: [],
-              },
-            },
-          },
-        ],
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
         },
+        required: ["foodName", "calories"],
       },
-    );
-
-    const aiMessage = response.data.choices[0].message;
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_daily_summary",
+      description: "Get today's calorie balance summary",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_today_workout",
+      description: "Get today's workout session for the user",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "pause_workout",
+      description: "Pause workouts for illness or recovery",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "resume_workout",
+      description: "Resume workouts after pause",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "break_streak",
+      description: "Break user's workout streak due to absence",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+]);
 
     // 🔥 If AI calls tool
     if (aiMessage.tool_calls) {
@@ -376,5 +347,63 @@ exports.chat = async (req, res) => {
   } catch (error) {
     console.error("AI ERROR:", error.response?.data || error.message);
     res.status(500).json({ error: "AI failed" });
+  }
+};
+
+
+
+exports.foodImage = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { image } = req.body;
+
+    const visionResult = await visionService.recognizeFood(image);
+
+    const { foodName, estimatedQuantity, unit, confidence } = visionResult;
+
+    if (confidence && confidence < 0.6) {
+      return res.status(200).json({
+        detectedFood: visionResult,
+        reply: `I think this is ${foodName}, but I'm not fully sure. Can you confirm what food this is and how much you ate?`
+      });
+    }
+
+    const messageText = estimatedQuantity && unit
+      ? `I ate ${estimatedQuantity} ${unit} of ${foodName}`
+      : `I ate ${foodName}`;
+
+    const aiMessage = await groqService.chat(
+      [
+        {
+          role: "system",
+          content: `
+User uploaded a food photo.
+
+Vision detected:
+Food: ${foodName}
+Quantity: ${estimatedQuantity || "unknown"} ${unit || ""}
+
+If enough information exists, call log_food.
+If portion is unclear, ask the user.
+`
+        },
+        {
+          role: "user",
+          content: messageText
+        }
+      ],
+      aiTools
+    );
+
+    return res.status(200).json({
+      detectedFood: visionResult,
+      reply: aiMessage.content
+    });
+
+  } catch (error) {
+    console.error("IMAGE AI ERROR:", error.message);
+    res.status(error.response?.status === 429 ? 429 : 500).json({
+      error: error.message || "Image AI failed",
+    });
   }
 };
