@@ -5,6 +5,11 @@ const { verifyToken } = require("../middleware/auth.middleware");
 
 router.get("/today", verifyToken, workoutController.getTodayWorkout);
 router.post("/complete", verifyToken, workoutController.completeWorkout);
+router.post(
+  "/complete-exercise",
+  verifyToken,
+  workoutController.completeExercise,
+);
 router.get("/journey", verifyToken, workoutController.getJourney);
 
 module.exports = router;

@@ -349,3 +349,173 @@ exports.getJourney = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+
+exports.completeExercise = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const today = getTodayString();
+    const { exerciseId, repsCompleted } = req.body;
+
+    if (!exerciseId) {
+      return res.status(400).json({ error: "exerciseId is required" });
+    }
+
+    // Load today's session
+    const session = await databases.getDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_WORKOUT_COLLECTION_ID,
+      userId + "_" + today,
+    );
+
+    if (session.completed) {
+      return res.status(200).json({ allDone: true, alreadyCompleted: true });
+    }
+
+    // Parse existing completed exercises list
+    let completedExercises = [];
+    if (session.completedExercises) {
+      try {
+        completedExercises = JSON.parse(session.completedExercises);
+      } catch (_) {}
+    }
+
+    // Avoid duplicate completions for the same exercise
+    const alreadyDone = completedExercises.some(
+      (e) => e.exerciseId === exerciseId,
+    );
+    if (!alreadyDone) {
+      completedExercises.push({
+        exerciseId,
+        repsCompleted: repsCompleted || 0,
+      });
+      await databases.updateDocument(
+        process.env.APPWRITE_DATABASE_ID,
+        process.env.APPWRITE_WORKOUT_COLLECTION_ID,
+        userId + "_" + today,
+        { completedExercises: JSON.stringify(completedExercises) },
+      );
+    }
+
+    // Check if all exercises in the session are done
+    const exercises = JSON.parse(session.exercises);
+    const totalExercises = exercises.length;
+    const doneCount = completedExercises.length;
+
+    if (doneCount < totalExercises) {
+      return res.status(200).json({
+        allDone: false,
+        doneCount,
+        totalExercises,
+      });
+    }
+
+    // ─── ALL DONE: complete the full day ───────────────────────────────────
+    const profile = await databases.getDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_PROFILE_COLLECTION_ID,
+      userId,
+    );
+
+    // Calculate total calories
+    let totalCalories = 0;
+    for (const entry of completedExercises) {
+      const exercise = exercises.find((e) => e.$id === entry.exerciseId);
+      if (!exercise) continue;
+      const totalSeconds =
+        (entry.repsCompleted || 0) * (exercise.avgRepSeconds || 1);
+      const durationHours = totalSeconds / 3600;
+      totalCalories += exercise.MET * profile.weight * durationHours;
+    }
+
+    // Mark session complete
+    await databases.updateDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_WORKOUT_COLLECTION_ID,
+      userId + "_" + today,
+      { completed: true, caloriesBurned: totalCalories },
+    );
+
+    // Update completed workout days
+    const newCompletedDays = (profile.completedWorkoutDays || 0) + 1;
+    await databases.updateDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_PROFILE_COLLECTION_ID,
+      userId,
+      { completedWorkoutDays: newCompletedDays },
+    );
+
+    // Level progression
+    let newLevel = profile.currentLevel || "easy";
+    if (newCompletedDays >= 30) newLevel = "hard";
+    else if (newCompletedDays >= 14) newLevel = "medium";
+    if (newLevel !== profile.currentLevel) {
+      await databases.updateDocument(
+        process.env.APPWRITE_DATABASE_ID,
+        process.env.APPWRITE_PROFILE_COLLECTION_ID,
+        userId,
+        { currentLevel: newLevel },
+      );
+    }
+
+    // Calorie target recalculation
+    const {
+      calculateBMR,
+      calculateTDEE,
+      calculateTarget,
+    } = require("../utils/calorieEngine");
+    const updatedProfile = await databases.getDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_PROFILE_COLLECTION_ID,
+      userId,
+    );
+    const BMR = calculateBMR(updatedProfile);
+    const TDEE = calculateTDEE(BMR, updatedProfile.currentLevel);
+    const dailyTarget = calculateTarget(TDEE, updatedProfile.goal);
+    await databases.updateDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_PROFILE_COLLECTION_ID,
+      userId,
+      { BMR, TDEE, dailyCalorieTarget: dailyTarget },
+    );
+
+    // Streak update
+    const streakDoc = await databases.getDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_STREAK_COLLECTION_ID,
+      userId,
+    );
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    let newStreak = 1;
+    if (streakDoc.lastWorkoutDate === yesterdayStr) {
+      newStreak = (streakDoc.currentStreak || 0) + 1;
+    }
+    const newLongest = Math.max(streakDoc.longestStreak || 0, newStreak);
+    await databases.updateDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_STREAK_COLLECTION_ID,
+      userId,
+      {
+        currentStreak: newStreak,
+        longestStreak: newLongest,
+        lastWorkoutDate: today,
+      },
+    );
+
+    // Daily summary
+    const { updateDailySummary } = require("../utils/dailySummaryEngine");
+    await updateDailySummary(userId);
+
+    return res.status(200).json({
+      allDone: true,
+      caloriesBurned: totalCalories,
+      completedWorkoutDays: newCompletedDays,
+      currentStreak: newStreak,
+      newLevel,
+    });
+  } catch (error) {
+    console.error("COMPLETE_EXERCISE ERROR:", error);
+    res.status(400).json({ error: error.message });
+  }
+};
