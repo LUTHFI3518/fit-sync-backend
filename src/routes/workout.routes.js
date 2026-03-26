@@ -11,5 +11,6 @@ router.post(
   workoutController.completeExercise,
 );
 router.get("/journey", verifyToken, workoutController.getJourney);
+router.get("/exercise-info/:name", verifyToken, workoutController.getExerciseInfo);
 
 module.exports = router;

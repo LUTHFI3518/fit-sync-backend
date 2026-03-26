@@ -346,9 +346,31 @@ exports.getJourney = async (req, res) => {
       streak: streakDoc.currentStreak,
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
+
+exports.getExerciseInfo = async (req, res) => {
+  try {
+    const { name } = req.params;
+    
+    const docs = await databases.listDocuments(
+      process.env.APPWRITE_DATABASE_ID,
+      "exercises", // matches our populated collection ID
+      [Query.equal("name", name)]
+    );
+
+    if (docs.total === 0) {
+      return res.status(404).json({ error: "Exercise info not found" });
+    }
+
+    const { description, gifUrl } = docs.documents[0];
+    res.status(200).json({ description, gifUrl });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 
 exports.completeExercise = async (req, res) => {
   try {
