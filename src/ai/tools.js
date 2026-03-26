@@ -13,8 +13,7 @@ exports.aiTools = [
           carbs: { type: "number" },
           fats: { type: "number" },
           mealType: {
-            type: "string",
-            enum: ["breakfast", "lunch", "dinner"]
+            type: "string"
           }
         },
         required: ["foodName", "calories"]
