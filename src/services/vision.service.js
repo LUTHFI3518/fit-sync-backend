@@ -4,9 +4,9 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const makeVisionRequest = async (imageBase64) => {
   return axios.post(
-    "https://openrouter.ai/api/v1/chat/completions",
+    "https://api.groq.com/openai/v1/chat/completions",
     {
-      model: "mistralai/mistral-small-3.1-24b-instruct:free",
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
       messages: [
         {
           role: "system",
@@ -62,10 +62,10 @@ If you are uncertain, lower the confidence score.
     },
     {
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
         "Content-Type": "application/json",
       },
-    }
+    },
   );
 };
 
@@ -92,13 +92,13 @@ exports.recognizeFood = async (imageBase64) => {
       if (status === 429) {
         if (attempt < maxRetries - 1) {
           console.warn(
-            `Vision API rate limited (429). Retrying in ${retryDelays[attempt] / 1000}s... (attempt ${attempt + 1}/${maxRetries})`
+            `Vision API rate limited (429). Retrying in ${retryDelays[attempt] / 1000}s... (attempt ${attempt + 1}/${maxRetries})`,
           );
           await sleep(retryDelays[attempt]);
           continue;
         } else {
           throw new Error(
-            "The food recognition service is temporarily rate-limited. Please wait a moment and try again."
+            "The food recognition service is temporarily rate-limited. Please wait a moment and try again.",
           );
         }
       }
