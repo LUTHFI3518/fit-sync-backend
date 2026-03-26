@@ -300,6 +300,19 @@ exports.chat = async (req, res) => {
         const downgradeUntil = new Date();
         downgradeUntil.setDate(downgradeUntil.getDate() + 2);
 
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+        await databases.updateDocument(
+          process.env.APPWRITE_DATABASE_ID,
+          process.env.APPWRITE_STREAK_COLLECTION_ID,
+          userId,
+          {
+            lastWorkoutDate: yesterdayStr,
+          },
+        );
+
         await databases.updateDocument(
           process.env.APPWRITE_DATABASE_ID,
           process.env.APPWRITE_PROFILE_COLLECTION_ID,
@@ -317,12 +330,17 @@ exports.chat = async (req, res) => {
       }
       // 🔥 BREAK STREAK TOOL
       if (toolName === "break_streak") {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
         await databases.updateDocument(
           process.env.APPWRITE_DATABASE_ID,
           process.env.APPWRITE_STREAK_COLLECTION_ID,
           userId,
           {
             currentStreak: 0,
+            lastWorkoutDate: yesterdayStr,
           },
         );
         await databases.updateDocument(
