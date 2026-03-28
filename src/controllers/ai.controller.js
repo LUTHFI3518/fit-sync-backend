@@ -392,21 +392,13 @@ exports.foodImage = async (req, res) => {
       });
     }
 
-    const messageText = estimatedQuantity && unit
-      ? `I ate ${estimatedQuantity} ${unit} of ${foodName}`
-      : `I ate ${foodName}`;
-
     const messages = [
       {
         role: "system",
         content: `
 User uploaded a food photo.
-
-Vision detected:
-Food: ${foodName}
-Quantity: ${estimatedQuantity || "unknown"} ${unit || ""}
-
-CRITICAL: You MUST ask the user for the exact quantity BEFORE calling log_food. NEVER guess the quantity! NEVER guess the calories! If the user did not specify how much they ate, you MUST reply with a question asking for quantity. ONLY call log_food if the quantity is absolutely clear!
+Vision AI detected: ${foodName} (Estimated quantity: ${estimatedQuantity || "unknown"} ${unit || ""}).
+CRITICAL POLICY: DO NOT call log_food right now. You MUST act as an interactive assistant. Politely tell the user what food you detected and ask them to confirm the exact portion size before logging anything.
 `
       }
     ];
@@ -417,7 +409,7 @@ CRITICAL: You MUST ask the user for the exact quantity BEFORE calling log_food. 
 
     messages.push({
       role: "user",
-      content: messageText
+      content: "[User uploaded a photo of their meal]"
     });
 
     const aiMessage = await groqService.chat(
