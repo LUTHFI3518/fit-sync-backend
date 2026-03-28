@@ -162,12 +162,21 @@ exports.chat = async (req, res) => {
     if (aiMessage.tool_calls) {
       const toolCall = aiMessage.tool_calls[0];
       const toolName = toolCall.function.name;
-      const args = toolCall.function.arguments
-        ? JSON.parse(toolCall.function.arguments)
-        : {};
+      let args = {};
+      try {
+        args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
+      } catch (err) {
+        console.error("Groq JSON Parse error on arguments", err);
+        return res.status(200).json({ reply: "I understood your food, but could you clarify how much you ate?" });
+      }
 
-      // 🔥 FOOD LOG TOOL
       if (toolName === "log_food") {
+        if (args.calories === undefined || args.calories === null) {
+          return res.status(200).json({
+            reply: `I see you had ${args.foodName || "that"}, but how much did you eat? I need the portion size to estimate the calories!`
+          });
+        }
+
         let mealType = null;
 
         // Only accept AI mealType if user explicitly mentioned it
