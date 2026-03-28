@@ -10,7 +10,7 @@ const { aiTools } = require("../ai/tools");
 exports.chat = async (req, res) => {
   try {
     const userId = req.userId;
-    const { message } = req.body;
+    const { message, history } = req.body;
 
     const messages = [
       {
@@ -29,11 +29,16 @@ exports.chat = async (req, res) => {
         - If user says they are ready to train again → call resume_workout.
         `,
       },
-      {
-        role: "user",
-        content: message,
-      },
     ];
+
+    if (history && Array.isArray(history)) {
+      messages.push(...history.slice(-10)); // keep last 10 lines max context
+    }
+
+    messages.push({
+      role: "user",
+      content: message,
+    });
 
     const profile = await databases.getDocument(
       process.env.APPWRITE_DATABASE_ID,
@@ -207,14 +212,16 @@ exports.chat = async (req, res) => {
         const summary = await updateDailySummary(userId);
 
         return res.status(200).json({
-          reply: `
-        Food logged successfully.
+          reply: `✅ **Logged ${args.foodName}**
+🔥 Calories: ${args.calories} kcal
+🥩 P: ${args.protein || 0}g | 🍞 C: ${args.carbs || 0}g | 🥑 F: ${args.fats || 0}g
+🕒 Meal: ${mealType}
 
-        Energy spent: ${summary.energySpent.toFixed(0)} kcal
-        Intake: ${summary.intake.toFixed(0)} kcal
-        Balance: ${summary.balance.toFixed(0)} kcal
-        Status: ${summary.status}
-      `,
+📊 **Today's Summary**
+Energy spent: ${summary.energySpent.toFixed(0)} kcal
+Intake: ${summary.intake.toFixed(0)} kcal
+Balance: ${summary.balance.toFixed(0)} kcal
+Status: ${summary.status}`,
         });
       }
 
@@ -372,7 +379,7 @@ exports.chat = async (req, res) => {
 exports.foodImage = async (req, res) => {
   try {
     const userId = req.userId;
-    const { image } = req.body;
+    const { image, history } = req.body;
 
     const visionResult = await visionService.recognizeFood(image);
 
@@ -389,11 +396,10 @@ exports.foodImage = async (req, res) => {
       ? `I ate ${estimatedQuantity} ${unit} of ${foodName}`
       : `I ate ${foodName}`;
 
-    const aiMessage = await groqService.chat(
-      [
-        {
-          role: "system",
-          content: `
+    const messages = [
+      {
+        role: "system",
+        content: `
 User uploaded a food photo.
 
 Vision detected:
@@ -403,14 +409,70 @@ Quantity: ${estimatedQuantity || "unknown"} ${unit || ""}
 If enough information exists, call log_food.
 If portion is unclear, ask the user.
 `
-        },
-        {
-          role: "user",
-          content: messageText
-        }
-      ],
+      }
+    ];
+
+    if (history && Array.isArray(history)) {
+      messages.push(...history.slice(-10));
+    }
+
+    messages.push({
+      role: "user",
+      content: messageText
+    });
+
+    const aiMessage = await groqService.chat(
+      messages,
       aiTools
     );
+
+    if (aiMessage.tool_calls) {
+      const toolCall = aiMessage.tool_calls[0];
+      const toolName = toolCall.function.name;
+      const args = toolCall.function.arguments
+        ? JSON.parse(toolCall.function.arguments)
+        : {};
+
+      if (toolName === "log_food") {
+        let mealType = null;
+        const hour = new Date().getHours();
+        if (hour < 12) mealType = "breakfast";
+        else if (hour < 18) mealType = "lunch";
+        else mealType = "dinner";
+
+        await databases.createDocument(
+          process.env.APPWRITE_DATABASE_ID,
+          process.env.APPWRITE_FOOD_COLLECTION_ID,
+          ID.unique(),
+          {
+            userId,
+            date: new Date().toISOString().split("T")[0],
+            foodName: args.foodName,
+            calories: args.calories,
+            protein: args.protein || 0,
+            carbs: args.carbs || 0,
+            fats: args.fats || 0,
+            mealType: mealType,
+          },
+        );
+
+        const summary = await updateDailySummary(userId);
+
+        return res.status(200).json({
+          detectedFood: visionResult,
+          reply: `✅ **Logged ${args.foodName}**
+🔥 Calories: ${args.calories} kcal
+🥩 P: ${args.protein || 0}g | 🍞 C: ${args.carbs || 0}g | 🥑 F: ${args.fats || 0}g
+🕒 Meal: ${mealType}
+
+📊 **Today's Summary**
+Energy spent: ${summary.energySpent.toFixed(0)} kcal
+Intake: ${summary.intake.toFixed(0)} kcal
+Balance: ${summary.balance.toFixed(0)} kcal
+Status: ${summary.status}`,
+        });
+      }
+    }
 
     return res.status(200).json({
       detectedFood: visionResult,
