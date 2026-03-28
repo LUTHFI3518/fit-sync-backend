@@ -114,10 +114,25 @@ exports.getTodayWorkout = async (req, res) => {
         [Query.equal("bodyPart", part), Query.equal("level", level)],
       );
 
-      const filtered = profile.hasDumbbell
+      let filtered = profile.hasDumbbell
         ? result.documents
         : result.documents.filter((e) => !e.requiresDumbbell);
 
+      if (!profile.hasDumbbell && filtered.length < 3) {
+        // Fetch backup bodyweight exercises from any level for this body part
+        const backupResult = await databases.listDocuments(
+          process.env.APPWRITE_DATABASE_ID,
+          process.env.APPWRITE_EXERCISE_COLLECTION_ID,
+          [Query.equal("bodyPart", part), Query.equal("requiresDumbbell", false)],
+        );
+        const existingIds = filtered.map((e) => e.$id);
+        const extras = backupResult.documents.filter((e) => !existingIds.includes(e.$id));
+        
+        extras.sort(() => Math.random() - 0.5);
+        filtered.push(...extras.slice(0, 3 - filtered.length));
+      }
+
+      filtered.sort(() => Math.random() - 0.5);
       const selected = filtered.slice(0, 3);
 
       exercises.push(...selected);
