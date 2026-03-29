@@ -82,7 +82,7 @@ exports.getTodayWorkout = async (req, res) => {
     const rotationIndex = completedDays % 3;
     const bodyParts = bodyRotation[rotationIndex];
 
-    let level = profile.currentLevel || "easy";
+    let level = profile.currentLevel || profile.level || "easy";
 
     // ---- DOWNGRADE CHECK ----
     if (profile.downgradeUntil) {

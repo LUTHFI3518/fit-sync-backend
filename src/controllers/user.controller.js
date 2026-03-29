@@ -40,6 +40,7 @@ exports.updateProfile = async (req, res) => {
         BMR,
         goal,
         level,
+        currentLevel: level, // Initialize adaptive level to starting level
         planDuration,
         hasDumbbell,
         hasBackPain,
