@@ -165,7 +165,6 @@ exports.getTodayWorkout = async (req, res) => {
         date: today,
         bodyParts,
         exercises: JSON.stringify(exercises),
-        appliedLevel: level,
         completed: false,
         caloriesBurned: 0,
       },

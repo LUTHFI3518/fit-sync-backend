@@ -300,8 +300,22 @@ Status: ${summary.status}`,
           formatted += `${index + 1}. ${ex.name} — ${ex.targetReps} reps\n`;
         });
 
-        const displayLevel = session.appliedLevel || profile.currentLevel || "easy";
+        let displayLevel = profile.currentLevel || profile.level || "easy";
+        
+        // ---- DYNAMIC DOWNGRADE LABEL CHECK ----
+        if (profile.downgradeUntil) {
+          const todayStr = getTodayString();
+          if (todayStr <= profile.downgradeUntil) {
+            if (displayLevel === "hard") displayLevel = "medium";
+            else if (displayLevel === "medium") displayLevel = "easy";
+          }
+        }
+
         formatted += `\nLevel: ${displayLevel.toUpperCase()}`;
+
+        if (profile.downgradeUntil && getTodayString() <= profile.downgradeUntil) {
+          formatted += " (Recovery Mode)";
+        }
 
         return res.status(200).json({
           reply: formatted,
