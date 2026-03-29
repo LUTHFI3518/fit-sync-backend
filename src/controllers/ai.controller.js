@@ -413,6 +413,26 @@ Status: ${summary.status}`,
           },
         );
 
+        // 🔥 FRESH START: Clear today's uncompleted session if it exists
+        try {
+          const today = getTodayString();
+          const existingWorkouts = await databases.listDocuments(
+            process.env.APPWRITE_DATABASE_ID,
+            process.env.APPWRITE_WORKOUT_COLLECTION_ID,
+            [Query.equal("userId", userId), Query.equal("date", today), Query.equal("completed", false)],
+          );
+
+          if (existingWorkouts.total > 0) {
+            await databases.deleteDocument(
+              process.env.APPWRITE_DATABASE_ID,
+              process.env.APPWRITE_WORKOUT_COLLECTION_ID,
+              existingWorkouts.documents[0].$id,
+            );
+          }
+        } catch (err) {
+          console.error("Failed to clear today's workout on break_streak:", err);
+        }
+
         return res.status(200).json({
           reply: "Your streak has been reset. Let’s restart strong today 💪",
         });
