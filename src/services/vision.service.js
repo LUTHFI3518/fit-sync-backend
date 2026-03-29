@@ -6,7 +6,7 @@ const makeVisionRequest = async (imageBase64) => {
   return axios.post(
     "https://api.groq.com/openai/v1/chat/completions",
     {
-      model: "llama-3.2-11b-vision-preview",
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
       messages: [
         {
           role: "system",
