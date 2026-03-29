@@ -5,7 +5,7 @@ const { Query } = require("appwrite");
 const { ID } = require("appwrite");
 const groqService = require("../services/groq.service");
 const visionService = require("../services/vision.service");
-const { getTodayString, getISTHour } = require("../utils/dateUtils");
+const { getTodayString, getISTHour, getISTDateString } = require("../utils/dateUtils");
 const { aiTools } = require("../ai/tools");
 
 exports.chat = async (req, res) => {
