@@ -6,8 +6,11 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const makeVisionRequest = async (imageBase64) => {
   const form = new FormData();
   
+  // Strip off the "data:image/jpeg;base64," prefix if it exists
+  const pureBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+  
   // Convert standard base64 string to a Buffer and append as file
-  const imageBuffer = Buffer.from(imageBase64, "base64");
+  const imageBuffer = Buffer.from(pureBase64, "base64");
   form.append("imageFile", imageBuffer, { filename: "image.jpg" });
 
   return axios.post(
