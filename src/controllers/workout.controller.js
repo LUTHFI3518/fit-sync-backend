@@ -56,10 +56,13 @@ exports.getTodayWorkout = async (req, res) => {
     );
 
     if (streakDoc.lastWorkoutDate) {
-      const todayDate = new Date();
-      const lastDate = new Date(streakDoc.lastWorkoutDate);
+      const today = getTodayString();
+      const lastDate = streakDoc.lastWorkoutDate;
 
-      const diff = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+      // Calculate days difference in IST
+      const t = new Date(today);
+      const l = new Date(lastDate);
+      const diff = Math.floor((t - l) / (1000 * 60 * 60 * 24));
 
       if (diff > 1 && !profile.pause && !profile.absencePending) {
         await databases.updateDocument(
@@ -86,10 +89,8 @@ exports.getTodayWorkout = async (req, res) => {
 
     // ---- DOWNGRADE CHECK ----
     if (profile.downgradeUntil) {
-      const todayDate = new Date();
-      const downgradeDate = new Date(profile.downgradeUntil);
-
-      if (todayDate <= downgradeDate) {
+      const today = getTodayString();
+      if (today <= profile.downgradeUntil) {
         if (level === "hard") level = "medium";
         else if (level === "medium") level = "easy";
       } else {
