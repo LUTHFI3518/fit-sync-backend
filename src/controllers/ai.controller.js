@@ -339,6 +339,7 @@ Status: ${summary.status}`,
         );
 
         await databases.updateDocument(
+          process.env.APPWRITE_DATABASE_ID,
           process.env.APPWRITE_PROFILE_COLLECTION_ID,
           userId,
           {
