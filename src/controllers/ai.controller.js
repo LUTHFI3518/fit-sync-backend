@@ -300,7 +300,8 @@ Status: ${summary.status}`,
           formatted += `${index + 1}. ${ex.name} — ${ex.targetReps} reps\n`;
         });
 
-        formatted += `\nLevel: ${profile.currentLevel}`;
+        const displayLevel = session.appliedLevel || profile.currentLevel || "easy";
+        formatted += `\nLevel: ${displayLevel.toUpperCase()}`;
 
         return res.status(200).json({
           reply: formatted,
