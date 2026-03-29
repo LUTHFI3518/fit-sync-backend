@@ -349,6 +349,28 @@ Status: ${summary.status}`,
           },
         );
 
+        // 🔥 FRESH START: Clear today's uncompleted session if it exists
+        // This ensures the user gets an "Easy" workout immediately upon resuming.
+        try {
+          const today = getTodayString();
+          const existingWorkouts = await databases.listDocuments(
+            process.env.APPWRITE_DATABASE_ID,
+            process.env.APPWRITE_WORKOUT_COLLECTION_ID,
+            [Query.equal("userId", userId), Query.equal("date", today), Query.equal("completed", false)],
+          );
+
+          if (existingWorkouts.total > 0) {
+            await databases.deleteDocument(
+              process.env.APPWRITE_DATABASE_ID,
+              process.env.APPWRITE_WORKOUT_COLLECTION_ID,
+              existingWorkouts.documents[0].$id,
+            );
+          }
+        } catch (err) {
+          console.error("Failed to clear today's workout on resume:", err);
+          // Non-fatal error
+        }
+
         return res.status(200).json({
           reply:
             "Welcome back! Workouts resumed. Intensity will be slightly reduced for 2 days to help you ease back in.",
