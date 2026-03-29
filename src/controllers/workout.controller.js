@@ -1,8 +1,18 @@
 const { databases } = require("../config/appwrite");
 const { Query } = require("appwrite");
 
+// Returns today's date string (YYYY-MM-DD) in IST (Asia/Kolkata)
 const getTodayString = () => {
-  return new Date().toISOString().split("T")[0];
+  return new Date()
+    .toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  // en-CA locale gives YYYY-MM-DD format natively
+};
+
+// Returns a date string (YYYY-MM-DD) in IST offset by `offsetDays` days
+const getISTDateString = (offsetDays = 0) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 };
 
 const isSunday = () => {
@@ -281,9 +291,7 @@ exports.completeWorkout = async (req, res) => {
       userId,
     );
 
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    const yesterdayStr = getISTDateString(-1);
 
     let newStreak = 1;
 
@@ -324,13 +332,24 @@ exports.getJourney = async (req, res) => {
   try {
     const userId = req.userId;
 
-    // Get workouts
+    // Get user profile to determine plan duration
+    const profile = await databases.getDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_PROFILE_COLLECTION_ID,
+      userId,
+    );
+
+    // planDuration is stored in months (3 or 6); convert to days
+    const planMonths = profile.planDuration || 3;
+    const totalDays = planMonths * 30;
+
+    // Get completed workouts
     const workouts = await databases.listDocuments(
       process.env.APPWRITE_DATABASE_ID,
       process.env.APPWRITE_WORKOUT_COLLECTION_ID,
       [
         Query.equal("userId", userId),
-        Query.equal("completed", true), // 🔥 Only completed workouts
+        Query.equal("completed", true),
       ],
     );
 
@@ -344,7 +363,7 @@ exports.getJourney = async (req, res) => {
       (_, i) => i + 1,
     );
 
-    const currentDay = completedCount + 1;
+    const currentDay = Math.min(completedCount + 1, totalDays);
 
     // Get streak
     const streakDoc = await databases.getDocument(
@@ -354,7 +373,8 @@ exports.getJourney = async (req, res) => {
     );
 
     res.status(200).json({
-      totalDays: 90,
+      totalDays,
+      planMonths,
       completedDays,
       completedDates: dates,
       currentDay,
