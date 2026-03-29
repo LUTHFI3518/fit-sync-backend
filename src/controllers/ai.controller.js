@@ -359,6 +359,7 @@ Status: ${summary.status}`,
           userId,
           {
             pause: false,
+            absencePending: false,
             downgradeUntil: downgradeUntilStr,
           },
         );
