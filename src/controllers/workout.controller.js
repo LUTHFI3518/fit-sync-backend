@@ -104,36 +104,53 @@ exports.getTodayWorkout = async (req, res) => {
     }
 
     const exercises = [];
+    const allLevels = ["easy", "medium", "hard"];
+    const targetLevelIdx = allLevels.indexOf(level);
 
     for (const part of bodyParts) {
-      const result = await databases.listDocuments(
-        process.env.APPWRITE_DATABASE_ID,
-        process.env.APPWRITE_EXERCISE_COLLECTION_ID,
-        [Query.equal("bodyPart", part), Query.equal("level", level)],
-      );
+      let partExercises = [];
+      
+      // We try the target level first, then search other levels if we don't have enough safe exercises
+      // Search order: [targetLevel, others...]
+      const searchLevels = [
+        level, 
+        ...allLevels.filter(l => l !== level) 
+      ];
 
-      let filtered = profile.hasDumbbell
-        ? result.documents
-        : result.documents.filter((e) => !e.requiresDumbbell);
+      for (const searchLevel of searchLevels) {
+        if (partExercises.length >= 3) break;
 
-      if (!profile.hasDumbbell && filtered.length < 3) {
-        // Fetch backup bodyweight exercises from any level for this body part
-        const backupResult = await databases.listDocuments(
+        const result = await databases.listDocuments(
           process.env.APPWRITE_DATABASE_ID,
           process.env.APPWRITE_EXERCISE_COLLECTION_ID,
-          [Query.equal("bodyPart", part), Query.equal("requiresDumbbell", false)],
+          [Query.equal("bodyPart", part), Query.equal("level", searchLevel)],
         );
-        const existingIds = filtered.map((e) => e.$id);
-        const extras = backupResult.documents.filter((e) => !existingIds.includes(e.$id));
-        
-        extras.sort(() => Math.random() - 0.5);
-        filtered.push(...extras.slice(0, 3 - filtered.length));
+
+        let filtered = result.documents.filter((e) => {
+          // 1. Dumbbell Filter
+          if (!profile.hasDumbbell && e.requiresDumbbell) return false;
+
+          // 2. Back Pain Filter
+          if (profile.hasBackPain && e.isBackSafe === false) return false;
+
+          // 3. Knee Pain Filter
+          if (profile.hasKneePain && e.isKneeSafe === false) return false;
+
+          return true;
+        });
+
+        // Add unique exercises to our pool for this body part
+        for (const f of filtered) {
+          if (partExercises.length < 3 && !partExercises.find(ex => ex.$id === f.$id)) {
+            partExercises.push(f);
+          }
+        }
       }
 
-      filtered.sort(() => Math.random() - 0.5);
-      const selected = filtered.slice(0, 3);
-
-      exercises.push(...selected);
+      // Final fallback: if even across all levels we don't have enough safe exercises,
+      // we just take what we found (safety first).
+      partExercises.sort(() => Math.random() - 0.5);
+      exercises.push(...partExercises);
     }
 
     const session = await databases.createDocument(
