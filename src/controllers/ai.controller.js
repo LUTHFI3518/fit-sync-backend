@@ -192,7 +192,8 @@ exports.chat = async (req, res) => {
         }
 
         if (!mealType) {
-          const hour = new Date().getHours();
+          const istTimeString = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+          const hour = new Date(istTimeString).getHours();
 
           if (hour < 12) mealType = "breakfast";
           else if (hour < 18) mealType = "lunch";
