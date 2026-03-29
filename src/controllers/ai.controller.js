@@ -20,9 +20,10 @@ exports.chat = async (req, res) => {
 
         Rules:
         - ONLY call log_food if the user is EXPLICITLY telling you they just ate a meal and providing details. DO NOT call log_food if they are asking general questions about food or diet history.
+        - When calling log_food, you MUST estimate and provide the exact 'calories', 'protein', 'carbs', and 'fats' based on standard nutritional data! NEVER leave calories as 0!
         - If user asks about progress, calories, deficit, surplus → call get_daily_summary.
         - If missing details for food logging → ask clarification.
-        - Never fabricate backend data.
+        - Never fabricate backend database records, but DO use your knowledge to estimate macros strictly for log_food.
         - Always use tools when required.
         - If user asks about workout or today's training → call get_today_workout.
         - If user mentions illness or needing rest → call pause_workout.

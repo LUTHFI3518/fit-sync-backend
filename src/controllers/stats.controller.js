@@ -49,7 +49,7 @@ exports.getWeeklyStats = async (req, res) => {
     result.documents.forEach((doc) => {
       map[doc.date] = {
         intake: doc.intakeCalories || 0,
-        burned: doc.burnedCalories || 0,
+        burned: doc.energySpent || 0,
         balance: doc.balance || 0,
         protein: doc.protein || 0,
         carbs: doc.carbs || 0,
@@ -107,7 +107,7 @@ exports.getMonthlyStats = async (req, res) => {
 
       if (weekIndex >= 0 && weekIndex < 4) {
         weeks[weekIndex].intake += doc.intakeCalories || 0;
-        weeks[weekIndex].burned += doc.burnedCalories || 0;
+        weeks[weekIndex].burned += doc.energySpent || 0;
         weeks[weekIndex].balance += doc.balance || 0;
         weeks[weekIndex].protein += doc.protein || 0;
         weeks[weekIndex].carbs += doc.carbs || 0;
@@ -147,7 +147,7 @@ exports.getLifetimeStats = async (req, res) => {
 
     result.documents.forEach((doc) => {
       totalIntake += doc.intakeCalories;
-      totalBurned += doc.burnedCalories;
+      totalBurned += doc.energySpent;
     });
 
     res.status(200).json({
