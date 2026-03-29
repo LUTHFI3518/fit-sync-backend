@@ -1,9 +1,7 @@
 const { databases } = require("../config/appwrite");
 const { Query } = require("appwrite");
 
-const getTodayString = () => {
-  return new Date().toISOString().split("T")[0];
-};
+const { getTodayString } = require("./dateUtils");
 
 const getStatus = (balance, goal) => {
   if (goal === "Lose weight") {

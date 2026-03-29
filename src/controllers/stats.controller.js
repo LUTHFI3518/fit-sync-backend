@@ -1,10 +1,11 @@
 const { databases } = require("../config/appwrite");
 const { Query } = require("appwrite");
+const { getTodayString, getISTDateString } = require("../utils/dateUtils");
 
 exports.getDailyStats = async (req, res) => {
   try {
     const userId = req.userId;
-    const date = req.query.date || new Date().toISOString().split("T")[0];
+    const date = req.query.date || getTodayString();
 
     const result = await databases.listDocuments(
       process.env.APPWRITE_DATABASE_ID,
@@ -26,13 +27,9 @@ exports.getWeeklyStats = async (req, res) => {
   try {
     const userId = req.userId;
 
-    const today = new Date();
     const last7 = [];
-
     for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      last7.push(d.toISOString().split("T")[0]);
+      last7.push(getISTDateString(-i));
     }
 
     const result = await databases.listDocuments(
@@ -76,13 +73,8 @@ exports.getWeeklyStats = async (req, res) => {
 exports.getMonthlyStats = async (req, res) => {
   try {
     const userId = req.userId;
-    const today = new Date();
-
-    const start = new Date();
-    start.setDate(today.getDate() - 27);
-
-    const startStr = start.toISOString().split("T")[0];
-    const endStr = today.toISOString().split("T")[0];
+    const startStr = getISTDateString(-27);
+    const endStr = getTodayString();
 
     const result = await databases.listDocuments(
       process.env.APPWRITE_DATABASE_ID,
@@ -101,8 +93,10 @@ exports.getMonthlyStats = async (req, res) => {
       { intake: 0, burned: 0, balance: 0, protein: 0, carbs: 0, fats: 0 },
     ];
 
+    const startDate = new Date(getISTDateString(-27));
+    
     result.documents.forEach((doc) => {
-      const diff = (new Date(doc.date) - start) / (1000 * 60 * 60 * 24);
+      const diff = (new Date(doc.date) - startDate) / (1000 * 60 * 60 * 24);
       const weekIndex = Math.floor(diff / 7);
 
       if (weekIndex >= 0 && weekIndex < 4) {

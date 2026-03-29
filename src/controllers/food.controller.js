@@ -1,9 +1,7 @@
 const { databases } = require("../config/appwrite");
 const { updateDailySummary } = require("../utils/dailySummaryEngine");
 
-const getTodayString = () => {
-  return new Date().toISOString().split("T")[0];
-};
+const { getTodayString } = require("../utils/dateUtils");
 
 exports.logFood = async (req, res) => {
   try {

@@ -1,23 +1,11 @@
 const { databases } = require("../config/appwrite");
 const { Query } = require("appwrite");
 
-// Returns today's date string (YYYY-MM-DD) in IST (Asia/Kolkata)
-const getTodayString = () => {
-  return new Date()
-    .toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-  // en-CA locale gives YYYY-MM-DD format natively
-};
-
-// Returns a date string (YYYY-MM-DD) in IST offset by `offsetDays` days
-const getISTDateString = (offsetDays = 0) => {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-};
+const { getTodayString, getISTDateString, getISTDay } = require("../utils/dateUtils");
 
 const isSunday = () => {
   if (process.env.DISABLE_SUNDAY === "true") return false;
-  return new Date().getDay() === 0;
+  return getISTDay() === 0;
 };
 
 const bodyRotation = [
@@ -541,9 +529,7 @@ exports.completeExercise = async (req, res) => {
       process.env.APPWRITE_STREAK_COLLECTION_ID,
       userId,
     );
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    const yesterdayStr = getISTDateString(-1);
     let newStreak = 1;
     if (streakDoc.lastWorkoutDate === yesterdayStr) {
       newStreak = (streakDoc.currentStreak || 0) + 1;

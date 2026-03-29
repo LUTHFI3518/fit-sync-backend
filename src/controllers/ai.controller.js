@@ -5,6 +5,7 @@ const { Query } = require("appwrite");
 const { ID } = require("appwrite");
 const groqService = require("../services/groq.service");
 const visionService = require("../services/vision.service");
+const { getTodayString, getISTHour } = require("../utils/dateUtils");
 const { aiTools } = require("../ai/tools");
 
 exports.chat = async (req, res) => {
@@ -193,8 +194,7 @@ exports.chat = async (req, res) => {
         }
 
         if (!mealType) {
-          const istTimeString = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-          const hour = new Date(istTimeString).getHours();
+          const hour = getISTHour();
 
           if (hour < 12) mealType = "breakfast";
           else if (hour < 18) mealType = "lunch";
@@ -210,7 +210,7 @@ exports.chat = async (req, res) => {
           ID.unique(),
           {
             userId,
-            date: new Date().toISOString().split("T")[0],
+            date: getTodayString(),
             foodName: args.foodName,
             calories: args.calories,
             protein: args.protein || 0,
@@ -253,7 +253,7 @@ Status: ${summary.status}`,
       }
       // 🔥 TODAY'S WORKOUT TOOL
       if (toolName === "get_today_workout") {
-        const today = new Date().toISOString().split("T")[0];
+        const today = getTodayString();
 
         const workout = await databases.listDocuments(
           process.env.APPWRITE_DATABASE_ID,
@@ -314,12 +314,8 @@ Status: ${summary.status}`,
       }
       // 🔥 RESUME WORKOUT TOOL
       if (toolName === "resume_workout") {
-        const downgradeUntil = new Date();
-        downgradeUntil.setDate(downgradeUntil.getDate() + 2);
-
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split("T")[0];
+        const downgradeUntilStr = getISTDateString(2);
+        const yesterdayStr = getISTDateString(-1);
 
         await databases.updateDocument(
           process.env.APPWRITE_DATABASE_ID,
@@ -331,12 +327,11 @@ Status: ${summary.status}`,
         );
 
         await databases.updateDocument(
-          process.env.APPWRITE_DATABASE_ID,
           process.env.APPWRITE_PROFILE_COLLECTION_ID,
           userId,
           {
             pause: false,
-            downgradeUntil: downgradeUntil.toISOString().split("T")[0],
+            downgradeUntil: downgradeUntilStr,
           },
         );
 
@@ -347,9 +342,7 @@ Status: ${summary.status}`,
       }
       // 🔥 BREAK STREAK TOOL
       if (toolName === "break_streak") {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split("T")[0];
+        const yesterdayStr = getISTDateString(-1);
 
         await databases.updateDocument(
           process.env.APPWRITE_DATABASE_ID,
@@ -437,7 +430,7 @@ CRITICAL POLICY: DO NOT call log_food right now. You MUST act as an interactive 
 
       if (toolName === "log_food") {
         let mealType = null;
-        const hour = new Date().getHours();
+        const hour = getISTHour();
         if (hour < 12) mealType = "breakfast";
         else if (hour < 18) mealType = "lunch";
         else mealType = "dinner";
@@ -448,7 +441,7 @@ CRITICAL POLICY: DO NOT call log_food right now. You MUST act as an interactive 
           ID.unique(),
           {
             userId,
-            date: new Date().toISOString().split("T")[0],
+            date: getTodayString(),
             foodName: args.foodName,
             calories: args.calories,
             protein: args.protein || 0,
