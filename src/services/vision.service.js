@@ -1,27 +1,71 @@
 const axios = require("axios");
-const FormData = require("form-data");
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const makeVisionRequest = async (imageBase64) => {
-  const form = new FormData();
-  
-  // Strip off the "data:image/jpeg;base64," prefix if it exists
-  const pureBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-  
-  // Convert standard base64 string to a Buffer and append as file
-  const imageBuffer = Buffer.from(pureBase64, "base64");
-  form.append("imageFile", imageBuffer, { filename: "image.jpg" });
-
   return axios.post(
-    "https://api.cloudmersive.com/image/recognize/describe",
-    form,
+    "https://api.groq.com/openai/v1/chat/completions",
+    {
+      model: "llama-3.2-11b-vision-preview",
+      messages: [
+        {
+          role: "system",
+          content: `
+You are a food recognition AI.
+
+Analyze the food image and estimate the portion size.
+
+Return ONLY valid JSON in this format:
+
+{
+  "foodName": "string",
+  "estimatedQuantity": number,
+  "unit": "string",
+  "confidence": number
+}
+
+Examples:
+
+{
+  "foodName": "boiled eggs",
+  "estimatedQuantity": 2,
+  "unit": "eggs",
+  "confidence": 0.92
+}
+
+{
+  "foodName": "fried rice",
+  "estimatedQuantity": 1,
+  "unit": "plate",
+  "confidence": 0.78
+}
+
+If you are uncertain, lower the confidence score.
+`,
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Analyze this food image.",
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageBase64,
+              },
+            },
+          ],
+        },
+      ],
+    },
     {
       headers: {
-        Apikey: process.env.CLOUDMERSIVE_API_KEY,
-        ...form.getHeaders(),
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        "Content-Type": "application/json",
       },
-    }
+    },
   );
 };
 
@@ -32,44 +76,34 @@ exports.recognizeFood = async (imageBase64) => {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await makeVisionRequest(imageBase64);
-      
-      const data = response.data;
-      if (!data || !data.Successful) {
-        throw new Error("Cloudmersive failed to recognize the image properly");
+      const content = response.data.choices[0].message.content;
+
+      // Strip markdown code fences if present
+      const cleaned = content.replace(/```json|```/g, "").trim();
+
+      try {
+        return JSON.parse(cleaned);
+      } catch {
+        throw new Error("Vision model returned invalid JSON");
       }
-
-      // We extract the best text description provided by Cloudmersive
-      const bestOutcome = data.BestOutcome || {};
-      const description = bestOutcome.Description || "unknown food";
-      const confidence = bestOutcome.ConfidenceScore || 0;
-
-      // Pack it into the format expected by our ai.controller.js
-      return {
-        foodName: description,
-        estimatedQuantity: null,
-        unit: "",
-        confidence,
-      };
-      
     } catch (error) {
       const status = error.response?.status;
 
-      // Rate handling specific limits (commonly 429)
       if (status === 429) {
         if (attempt < maxRetries - 1) {
           console.warn(
-            `Vision API rate limited (429). Retrying in ${retryDelays[attempt] / 1000}s... (attempt ${attempt + 1}/${maxRetries})`
+            `Vision API rate limited (429). Retrying in ${retryDelays[attempt] / 1000}s... (attempt ${attempt + 1}/${maxRetries})`,
           );
           await sleep(retryDelays[attempt]);
           continue;
         } else {
           throw new Error(
-            "The image recognition service is temporarily rate-limited. Please wait a moment and try again."
+            "The food recognition service is temporarily rate-limited. Please wait a moment and try again.",
           );
         }
       }
 
-      // Pass other errors up
+      // Any other error — rethrow
       throw error;
     }
   }
