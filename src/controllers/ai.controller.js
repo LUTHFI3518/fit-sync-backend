@@ -266,6 +266,18 @@ Status: ${summary.status}`,
           userId,
         );
 
+        // ---- RECOVERY & ABSENCE CHECKS ----
+        if (profile.pause) {
+          return res.status(200).json({
+            reply: "Your workouts are currently paused for recovery. 🛌 Focus on rest and hydration! Just let me know when you're feeling strong enough to resume.",
+          });
+        }
+        if (profile.absencePending) {
+          return res.status(200).json({
+            reply: "I noticed you've been away for a few days. 🛡️ Please tell me why you were absent (e.g., were you sick?) before we can jump back into today's workout.",
+          });
+        }
+
         if (workout.total === 0) {
           return res.status(200).json({
             reply: "Today is a rest day. Focus on recovery and hydration.",
