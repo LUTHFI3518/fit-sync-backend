@@ -23,7 +23,23 @@ exports.getTodayWorkout = async (req, res) => {
       return res.status(200).json({ restDay: true });
     }
 
-    // Check if session already exists
+    // 1. Fetch user profile FIRST to check for Pause/Absence status
+    const profile = await databases.getDocument(
+      process.env.APPWRITE_DATABASE_ID,
+      process.env.APPWRITE_PROFILE_COLLECTION_ID,
+      userId,
+    );
+
+    // 2. IMMEDIATE PAUSE CHECK (Takes priority over everything)
+    if (profile.pause) {
+      return res.status(403).json({
+        blocked: true,
+        reason: "paused",
+        message: "Workouts are currently paused. Resume when ready.",
+      });
+    }
+
+    // 3. Now check if session already exists for today
     const existing = await databases.listDocuments(
       process.env.APPWRITE_DATABASE_ID,
       process.env.APPWRITE_WORKOUT_COLLECTION_ID,
@@ -32,20 +48,6 @@ exports.getTodayWorkout = async (req, res) => {
 
     if (existing.total > 0) {
       return res.status(200).json(existing.documents[0]);
-    }
-
-    // Fetch user profile
-    const profile = await databases.getDocument(
-      process.env.APPWRITE_DATABASE_ID,
-      process.env.APPWRITE_PROFILE_COLLECTION_ID,
-      userId,
-    );
-    if (profile.pause) {
-      return res.status(403).json({
-        blocked: true,
-        reason: "paused",
-        message: "Workouts are currently paused. Resume when ready.",
-      });
     }
 
     // ---- ABSENCE BLOCK CHECK ----
